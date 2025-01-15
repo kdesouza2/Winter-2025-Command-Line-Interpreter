@@ -104,6 +104,74 @@ int count_words(char *buff, int len, int str_len){
 
     return count;
 }
+
+void reverse_string(char* str) {
+    if (!str){
+        printf("Error: Invalid Arguments.\n");
+        exit(1);
+    } 
+
+    char* start = str;
+    char* end = str;
+    char* write_ptr = str;
+
+    // Move the `end` pointer to the last character of the string
+    while (*end != '\0') {
+        if (*end != '.') {
+            *write_ptr++ = *end; // Copy non-dot characters to the string
+        }
+        end++;
+    }
+    *write_ptr = '\0'; // Null-terminate the string after removing dots
+
+    // Adjust `end` to the new last character after excluding dots
+    end = write_ptr - 1;
+
+    // Reverse the string in place
+    while (start < end) {
+        char temp = *start;
+        *start = *end;
+        *end = temp;
+
+        start++;
+        end--;
+    }
+}
+
+void print_words_and_lengths(char* str, int user_str_len) {
+    if (!str){
+        printf("Error: Invalid Arguments.\n");
+        exit(1); // Handle null input
+    } 
+
+    char* word_start = NULL;
+    int word_length = 0;
+    int word_count = count_words(str, BUFFER_SZ, user_str_len);
+
+    printf("Word Print\n----------\n");
+
+    while (*str != '\0') {
+        // Ignore spaces and periods
+        if (!is_space(*str) && *str != '.') {
+            if (word_start == NULL) {
+                word_start = str; // Mark the beginning of a word
+            }
+            word_length++;
+        } else if (word_start != NULL) {
+            // End of a word, print it, ignoring periods in the word length
+            printf("%d. %.*s (%d)\n", word_count, word_length, word_start, word_length);
+            word_start = NULL;
+            word_length = 0;
+        }
+        str++;
+    }
+
+    // Handle the last word if the string doesn't end with a space
+    if (word_start != NULL) {
+        printf("%d. %.*s (%d)\n", word_count, word_length, word_start, word_length);
+    }
+}
+
  
 //ADD OTHER HELPER FUNCTIONS HERE FOR OTHER REQUIRED PROGRAM OPTIONS
 
@@ -178,11 +246,12 @@ int main(int argc, char *argv[]){
         //TODO:  #5 Implement the other cases for 'r' and 'w' by extending
         //       the case statement options
         case 'r':
-
+            reverse_string(buff);
+            printf("Reversed String: %s\n", buff);
             break;
         
         case 'w':
-
+            print_words_and_lengths(buff, user_str_len);
             break;
 
         default:
@@ -191,7 +260,7 @@ int main(int argc, char *argv[]){
     }
 
     //TODO:  #6 Dont forget to free your buffer before exiting
-    print_buff(buff,BUFFER_SZ);
+    // print_buff(buff,BUFFER_SZ);
     free(buff);
     exit(0);
 }
