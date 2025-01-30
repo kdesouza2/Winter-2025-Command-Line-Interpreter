@@ -11,7 +11,7 @@ typedef struct student{
     int id;
     char fname[24];
     char lname[32];
-    int gpa; 
+    float gpa; 
 } student_t;
 
 //Define limits for sudent ids and allowable GPA ranges.  Note GPA values will
