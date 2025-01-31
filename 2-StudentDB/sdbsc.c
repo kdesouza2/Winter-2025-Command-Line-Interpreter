@@ -73,6 +73,7 @@ int get_student(int fd, int id, student_t *s){
     }
 
     if (s->id == 0) {
+        printf("Student %d was not found in database.\n", id);
         return SRCH_NOT_FOUND;
     }
     
@@ -140,7 +141,7 @@ int add_student(int fd, int id, char *fname, char *lname, int gpa){
 
     // Check if the slot is occupied (record is not empty)
     if (bytesRead == STUDENT_RECORD_SIZE && memcmp(&existing, &EMPTY_STUDENT_RECORD, STUDENT_RECORD_SIZE) != 0) {
-        printf("Error: Duplicate record found. Cannot add student.\n");
+        printf("Cant add student with ID=%d, already exists in db.\n", id);
         return ERR_DB_OP;
     }
 
@@ -157,7 +158,7 @@ int add_student(int fd, int id, char *fname, char *lname, int gpa){
         return ERR_DB_FILE;
     }
 
-    printf("M_STD_ADDED\n");
+    printf("Student %d added to database.\n", id);
     return NO_ERROR;
 }
 
@@ -186,7 +187,7 @@ int add_student(int fd, int id, char *fname, char *lname, int gpa){
 int del_student(int fd, int id){
     student_t s;
     if (get_student(fd, id, &s) == ERR_DB_FILE || s.id == 0) {
-        printf("M_STD_NOT_FND_MSG\n");
+        printf("Student %d was not found in database.\n", id);
         return ERR_DB_OP;
     }
     
@@ -196,7 +197,7 @@ int del_student(int fd, int id){
         perror("write");
         return ERR_DB_FILE;
     }
-    printf("M_STD_DEL_MSG\n");
+    printf("Student %d was deleted from database.\n", id);
     return NO_ERROR;
 }
 
@@ -237,7 +238,7 @@ int count_db_records(int fd){
     if (count == 0) {
         printf("M_DB_EMPTY\n");
     } else {
-        printf("M_DB_RECORD_CNT: %d\n", count);
+        printf("Database contains %d student record(s).\n", count);
     }
     return count;
 }
@@ -290,7 +291,7 @@ int print_db(int fd){
         }
     }
     if (record_num == 0) {
-        printf("M_DB_EMPTY\n");
+        printf("Database contains no student records.\n");
     }
     return NO_ERROR;
 }
