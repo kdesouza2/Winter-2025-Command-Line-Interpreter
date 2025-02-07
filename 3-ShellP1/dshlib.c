@@ -32,8 +32,29 @@
  *  Standard Library Functions You Might Want To Consider Using
  *      memset(), strcmp(), strcpy(), strtok(), strlen(), strchr()
  */
-int build_cmd_list(char *cmd_line, command_list_t *clist)
-{
-    printf(M_NOT_IMPL);
-    return EXIT_NOT_IMPL;
+int build_cmd_list(char *cmd_line, command_list_t *clist) {
+    
+    memset(clist, sizeof(command_list_t));
+    char* token;
+    int cmd_count = 0;
+
+    // split command by pipe
+    token = strtok(cmd_line, PIPE_STRING);
+
+    while (token) {
+        if (cmd_count >= CMD_MAX) {
+            return ERR_TOO_MANY_COMMANDS;
+        }
+
+        // delete leading spaces
+        while (*token == SPACE_CHAR) {
+            token++;
+        }
+
+        // delete trailing spaces
+        char* end = token + strlen(token) - 1;
+        while (end > token && *end == SPACE_CHAR) {
+            end -=
+        }
+    }
 }
