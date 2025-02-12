@@ -44,46 +44,51 @@
  *
  *  See the provided test cases for output expectations.
  */
-int main()
-{
-    char *cmd_buff;
+int main() {
+    char* cmd_buff;
     int rc = 0;
     command_list_t clist;
 
-    while (1){
+    cmd_buff = malloc(SH_CMD_MAX * sizeof(char));
+
+    while (1) {
         printf("%s", SH_PROMPT);
-        if (fgets(cmd_buff, ARG_MAX, stdin) == NULL){
+        if (fgets(cmd_buff, SH_CMD_MAX, stdin) == NULL) {
             printf("\n");
             break;
         }
         
-        // remove the trailing \n from cmd_buff
         cmd_buff[strcspn(cmd_buff, "\n")] = '\0';
-    
-        // check if the command is empty
+        
         if (strlen(cmd_buff) == 0) {
             printf(CMD_WARN_NO_CMD);
-        // check if user wants to exit
-        } else if (strcmp(cmd_buff, EXIT_CMD)){
-            break; // stop while loop
+            continue;
         }
-
-        // parse command
-        rc = build_cmd_list(cmd_buff, clist);
-
-        // handle any errors based on the return of build_cmd_list
-        if (rc == ERR_TOO_MANY_COMMANDS || rc == ERR_CMD_OR_ARGS_TOO) {
+        
+        if (strcmp(cmd_buff, EXIT_CMD) == 0) {
+            break;
+        }
+        
+        rc = build_cmd_list(cmd_buff, &clist);
+        
+        if (rc == ERR_TOO_MANY_COMMANDS) {
             printf(CMD_ERR_PIPE_LIMIT, CMD_MAX);
+            continue;
         } else if (rc == WARN_NO_CMDS) {
             printf(CMD_WARN_NO_CMD);
-        } else if (rc == OK){
+            continue;
+        } else {
             printf(CMD_OK_HEADER, clist.num);
             for (int i = 0; i < clist.num; i++) {
-                printf(clist->commands[i]);
+                printf("<%d> %s", i + 1, clist.commands[i].exe);
+                if (strlen(clist.commands[i].args) > 0) {
+                    printf(" [%s]", clist.commands[i].args);
+                }
+                printf("\n");
             }
         }
     }
-
-    // printf(M_NOT_IMPL);
+    
+    free(cmd_buff);
     exit(OK);
 }

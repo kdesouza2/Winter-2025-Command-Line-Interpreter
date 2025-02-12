@@ -21,7 +21,7 @@ typedef struct command_list
 } command_list_t;
 
 // Special character #defines
-#define SPACE_CHAR ' '
+#define SPACE_CHAR " "
 #define PIPE_CHAR '|'
 #define PIPE_STRING "|"
 

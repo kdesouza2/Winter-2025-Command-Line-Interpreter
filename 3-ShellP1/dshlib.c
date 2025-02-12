@@ -33,28 +33,62 @@
  *      memset(), strcmp(), strcpy(), strtok(), strlen(), strchr()
  */
 int build_cmd_list(char *cmd_line, command_list_t *clist) {
-    
-    memset(clist, sizeof(command_list_t));
-    char* token;
+    if (!cmd_line || !clist) {
+        return ERR_CMD_OR_ARGS_TOO_BIG;
+    }
+
+    memset(clist, 0, sizeof(command_list_t));
+    char *cmd_token, *arg_token;
+    char *saveptr1, *saveptr2;
     int cmd_count = 0;
 
-    // split command by pipe
-    token = strtok(cmd_line, PIPE_STRING);
-
-    while (token) {
+    // Split command line by '|'
+    cmd_token = strtok_r(cmd_line, "|", &saveptr1);
+    while (cmd_token) {
         if (cmd_count >= CMD_MAX) {
             return ERR_TOO_MANY_COMMANDS;
         }
 
-        // delete leading spaces
-        while (*token == SPACE_CHAR) {
-            token++;
+        // Trim leading spaces
+        while (*cmd_token == ' ') {
+            cmd_token++;
         }
 
-        // delete trailing spaces
-        char* end = token + strlen(token) - 1;
-        while (end > token && *end == SPACE_CHAR) {
-            end -=
+        // Trim trailing spaces
+        char *end = cmd_token + strlen(cmd_token) - 1;
+        while (end > cmd_token && *end == ' ') {
+            *end = '\0';
+            end--;
         }
+
+        // Tokenize command into executable and arguments
+        arg_token = strtok_r(cmd_token, " ", &saveptr2);
+        if (!arg_token) {
+            return ERR_CMD_OR_ARGS_TOO_BIG;
+        }
+
+        // Copy executable name
+        strncpy(clist->commands[cmd_count].exe, arg_token, EXE_MAX - 1);
+        clist->commands[cmd_count].exe[EXE_MAX - 1] = '\0';
+
+        // Store arguments as a space-separated string
+        clist->commands[cmd_count].args[0] = '\0';  // Ensure it's empty
+        int first_arg = 1;
+        while ((arg_token = strtok_r(NULL, " ", &saveptr2)) != NULL) {
+            if (strlen(clist->commands[cmd_count].args) + strlen(arg_token) + 2 >= ARG_MAX) {
+                return ERR_CMD_OR_ARGS_TOO_BIG;
+            }
+            if (!first_arg) {
+                strncat(clist->commands[cmd_count].args, " ", ARG_MAX - strlen(clist->commands[cmd_count].args) - 1);
+            }
+            strncat(clist->commands[cmd_count].args, arg_token, ARG_MAX - strlen(clist->commands[cmd_count].args) - 1);
+            first_arg = 0;
+        }
+
+        cmd_count++;
+        cmd_token = strtok_r(NULL, "|", &saveptr1);
     }
+
+    clist->num = cmd_count;
+    return OK;
 }
