@@ -176,36 +176,12 @@ int exec_cmd(cmd_buff_t* cmd) {
                 printf(CMD_ERR_EXECUTE);
                 exit(ERR_EXEC_CMD);
             }
-        // command pwd
-        } else if (strcmp(cmd_exec, "pwd") == 0) {
-            execvp("pwd", cmd->argv);
-            printf(CMD_ERR_EXECUTE);
-            exit(ERR_EXEC_CMD);
-        // command echo
-        } else if (strcmp(cmd_exec, "echo") == 0) {
-            if (cmd->argc > 1) {
-                for (int i = 1; i < cmd->argc; i++) {
-                    printf("%s", cmd->argv[i]);
-                    if (i < cmd->argc - 1) {
-                        printf(" ");  // Print a single space between arguments
-                    }
-                }
-                printf("\n");
-                
-            } else {
-                exit(ERR_CMD_ARGS_BAD); // Exit if no arguments
-            }
-        // command ls
-        } else if (strcmp(cmd_exec, "ls") == 0) {
-            execvp("ls", cmd->argv);
-            printf(CMD_ERR_EXECUTE);
-            exit(ERR_EXEC_CMD);
-        // command uname
-        } else if (strcmp(cmd_exec, "uname") == 0) {
-            execvp("uname", cmd->argv);
+        } else {
+            execvp(cmd_exec, cmd->argv);
             printf(CMD_ERR_EXECUTE);
             exit(ERR_EXEC_CMD);
         }
+        
     } else if (pid < 0) { // fork failed
         printf(CMD_ERR_EXECUTE);
         return ERR_MEMORY;
@@ -241,35 +217,32 @@ int exec_local_cmd_loop() {
         
         cmd_buff[strcspn(cmd_buff, "\n")] = '\0';
 
-        // check if no command was entered
-        if (strlen(cmd_buff) == 0) {
+        // If exit is entered, clean up and exit immediately
+        if (strcmp(cmd_buff, EXIT_CMD) == 0) {
+            free(cmd_buff);
+            clear_cmd_buff(cmd);
+            free(cmd);
+            return OK;  // Ensure the function terminates
+        // Check if no command was entered
+        } else if (strlen(cmd_buff) == 0) {
             printf(CMD_WARN_NO_CMD);
             continue;
-        }
-
-        // if exit was entered stop reading input
-        if (strcmp(cmd_buff, EXIT_CMD) == 0) {
-            clear_cmd_buff(cmd);
-            break;
-        }
-        
-        // build cmd and check rc
-        rc = build_cmd_buff(cmd_buff, cmd);
-        if (rc == ERR_TOO_MANY_COMMANDS) {
-            printf(CMD_ERR_PIPE_LIMIT, CMD_ARGV_MAX);
-        } else if (rc == ERR_MEMORY) {
-            printf(CMD_ERR_EXECUTE);
+        // Build command buffer
         } else {
-            rc = exec_cmd(cmd);
+            rc = build_cmd_buff(cmd_buff, cmd);
+            if (rc == ERR_TOO_MANY_COMMANDS) {
+                printf(CMD_ERR_PIPE_LIMIT, CMD_ARGV_MAX);
+            } else if (rc == ERR_MEMORY) {
+                printf(CMD_ERR_EXECUTE);
+            } else {
+                rc = exec_cmd(cmd);
+            }
         }
     }
-    
-    // Free allocated memory
+
+    // Cleanup before exiting
     free(cmd_buff);
-    free(cmd->_cmd_buffer);
-    for (int i = 0; i < cmd->argc; i++) {
-        free(cmd->argv[i]);
-    }
+    clear_cmd_buff(cmd);
     free(cmd);
     
     return OK;
