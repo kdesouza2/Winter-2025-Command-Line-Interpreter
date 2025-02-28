@@ -11,7 +11,8 @@ This project, developed for **CS 283 (Winter 2025)**, is a **compiler-like syste
 - **Automated Testing:** Uses **BATS (Bash Automated Testing System)** to verify command execution and output.  
 
 ## **Technologies Used**  
-- **C** (Core application logic)  
+- **C** (Core application logic)
+- **Visual Studio Code** (IDE)
 - **Lexical & Syntax Parsing** for command interpretation  
 - **Unix System Calls** for process execution  
 - **BATS (Bash Automated Testing System)** for testing 
