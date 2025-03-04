@@ -63,37 +63,25 @@
     char *saveptr1, *saveptr2;
     int cmd_count = 0;
 
-    // Split command line by '|'
     cmd_token = strtok_r(cmd_line, "|", &saveptr1);
     while (cmd_token) {
         if (cmd_count >= CMD_MAX) {
             return ERR_TOO_MANY_COMMANDS;
         }
 
-        // Trim leading spaces
-        while (*cmd_token == ' ') {
-            cmd_token++;
-        }
-
-        // Trim trailing spaces
+        while (*cmd_token == ' ') cmd_token++;
         char *end = cmd_token + strlen(cmd_token) - 1;
-        while (end > cmd_token && *end == ' ') {
-            *end = '\0';
-            end--;
-        }
+        while (end > cmd_token && *end == ' ') *end-- = '\0';
 
-        // Tokenize command into executable and arguments
         arg_token = strtok_r(cmd_token, " ", &saveptr2);
         if (!arg_token) {
             return ERR_CMD_OR_ARGS_TOO_BIG;
         }
 
-        // Copy executable name
         strncpy(clist->commands[cmd_count].exe, arg_token, EXE_MAX - 1);
         clist->commands[cmd_count].exe[EXE_MAX - 1] = '\0';
 
-        // Store arguments as a space-separated string
-        clist->commands[cmd_count].args[0] = '\0';  // Ensure it's empty
+        clist->commands[cmd_count].args[0] = '\0';
         int first_arg = 1;
         while ((arg_token = strtok_r(NULL, " ", &saveptr2)) != NULL) {
             if (strlen(clist->commands[cmd_count].args) + strlen(arg_token) + 2 >= ARG_MAX) {
@@ -113,6 +101,7 @@
     clist->num = cmd_count;
     return OK;
 }
+
 
 int build_cmd_buff(char* cmd_buff, cmd_buff_t* cmd) {
 
@@ -186,6 +175,7 @@ int build_cmd_buff(char* cmd_buff, cmd_buff_t* cmd) {
     return OK;
 }
 
+
 int clear_cmd_buff(cmd_buff_t *cmd_buff) {
     if (!cmd_buff) {
         return ERR_MEMORY;
@@ -240,6 +230,7 @@ int exec_cmd(cmd_buff_t* cmd) {
     return OK;
 }
 
+
 int execute_pipeline(command_list_t *clist) {
     if (clist->num == 0) {
         return WARN_NO_CMDS;
@@ -267,36 +258,32 @@ int execute_pipeline(command_list_t *clist) {
             return ERR_MEMORY;
         }
         
-        if (pids[i] == 0) { // Child process
-            if (i > 0) { // Not the first command, read from previous pipe
+        if (pids[i] == 0) {
+            if (i > 0) {
                 dup2(pipes[i - 1][0], STDIN_FILENO);
             }
-            if (i < clist->num - 1) { // Not the last command, write to next pipe
+            if (i < clist->num - 1) {
                 dup2(pipes[i][1], STDOUT_FILENO);
             }
             
-            // Close all pipe ends in child
             for (int j = 0; j < clist->num - 1; j++) {
                 close(pipes[j][0]);
                 close(pipes[j][1]);
             }
             
-            if (exec_cmd(&cmd) != OK) {
-                exit(ERR_EXEC_CMD);
-            }
+            execvp(cmd.argv[0], cmd.argv);
+            perror("execvp");
+            exit(ERR_EXEC_CMD);
         }
         
-        // **Move clear_cmd_buff() here after fork**
         clear_cmd_buff(&cmd);
     }
     
-    // Close all pipe ends in parent
     for (int i = 0; i < clist->num - 1; i++) {
         close(pipes[i][0]);
         close(pipes[i][1]);
     }
     
-    // Wait for all children to finish
     for (int i = 0; i < clist->num; i++) {
         waitpid(pids[i], NULL, 0);
     }
@@ -304,17 +291,18 @@ int execute_pipeline(command_list_t *clist) {
     return OK;
 }
 
-
-int exec_local_cmd_loop()
-{
-    char* cmd_buff;
-    int rc = 0;
+int exec_local_cmd_loop() {
+    char *cmd_buff = malloc(SH_CMD_MAX * sizeof(char));
+    if (!cmd_buff) {
+        return ERR_MEMORY;
+    }
+    
     command_list_t clist;
-
-    cmd_buff = malloc(SH_CMD_MAX * sizeof(char));
-
+    
     while (1) {
         printf("%s", SH_PROMPT);
+        fflush(stdout);
+        
         if (fgets(cmd_buff, SH_CMD_MAX, stdin) == NULL) {
             printf("\n");
             break;
@@ -331,8 +319,7 @@ int exec_local_cmd_loop()
             break;
         }
         
-        rc = build_cmd_list(cmd_buff, &clist);
-
+        int rc = build_cmd_list(cmd_buff, &clist);
         if (rc == ERR_TOO_MANY_COMMANDS) {
             printf(CMD_ERR_PIPE_LIMIT, CMD_MAX);
             continue;
@@ -340,10 +327,10 @@ int exec_local_cmd_loop()
             printf(CMD_WARN_NO_CMD);
             continue;
         } else {
-            rc = execute_pipeline(&clist);
+            execute_pipeline(&clist);
         }
     }
-   
-    free(cmd_buff);  // free cmd_buff to avoid memory leak
+    
+    free(cmd_buff);
     return OK;
 }
