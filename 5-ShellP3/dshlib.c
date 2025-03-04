@@ -250,6 +250,8 @@ int execute_pipeline(command_list_t *clist) {
     for (int i = 0; i < clist->num; i++) {
         if (build_cmd_buff(clist->commands[i].exe, &cmd) != OK) {
             return ERR_MEMORY;
+        } else {
+            build_cmd_buff(clist->commands[i].exe, &cmd);
         }
 
         pids[i] = fork();
@@ -292,12 +294,11 @@ int execute_pipeline(command_list_t *clist) {
 }
 
 int exec_local_cmd_loop() {
-    char *cmd_buff = malloc(SH_CMD_MAX * sizeof(char));
-    if (!cmd_buff) {
-        return ERR_MEMORY;
-    }
-    
+    char* cmd_buff;
+    int rc = 0;
     command_list_t clist;
+
+    cmd_buff = malloc(SH_CMD_MAX * sizeof(char));
     
     while (1) {
         printf("%s", SH_PROMPT);
@@ -319,7 +320,7 @@ int exec_local_cmd_loop() {
             break;
         }
         
-        int rc = build_cmd_list(cmd_buff, &clist);
+        rc = build_cmd_list(cmd_buff, &clist);
         if (rc == ERR_TOO_MANY_COMMANDS) {
             printf(CMD_ERR_PIPE_LIMIT, CMD_MAX);
             continue;
