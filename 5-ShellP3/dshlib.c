@@ -53,6 +53,28 @@
  *      fork(), execvp(), exit(), chdir()
  */
  
+ char* combine_exe_and_args(command_t *cmd) {
+    // Allocate memory for the combined string
+    // Size: exe + space + args + null terminator
+    size_t total_size = strlen(cmd->exe) + strlen(cmd->args) + 2;
+    char *combined = malloc(total_size * sizeof(char));
+    
+    if (!combined) {
+        return NULL;  // Handle malloc failure
+    }
+    
+    // Copy the executable into the combined string
+    strcpy(combined, cmd->exe);
+    
+    // If there are arguments, append them with a space
+    if (strlen(cmd->args) > 0) {
+        strcat(combined, " ");  // Add space between exe and args
+        strcat(combined, cmd->args);
+    }
+    
+    return combined;
+}
+
  int build_cmd_list(char *cmd_line, command_list_t *clist) {
     if (!cmd_line || !clist) {
         return ERR_CMD_OR_ARGS_TOO_BIG;
@@ -104,7 +126,6 @@
 
 
 int build_cmd_buff(char* cmd_buff, cmd_buff_t* cmd) {
-
     int cmd_count = 0;
     bool is_echo = false;
     bool in_quotes = false;
@@ -173,27 +194,39 @@ int build_cmd_buff(char* cmd_buff, cmd_buff_t* cmd) {
     cmd->argv[cmd_count] = NULL;
     cmd->argc = cmd_count;
     return OK;
+
+    // // DEBUGGING: Print parsed arguments
+    // printf("Parsed command: ");
+    // for (int i = 0; i < cmd->argc; i++) {
+    //     printf("[%s] ", cmd->argv[i]);
+    // }
+    // printf("\n");
+
 }
 
 
 int clear_cmd_buff(cmd_buff_t *cmd_buff) {
     if (!cmd_buff) {
-        return ERR_MEMORY;
+        return ERR_MEMORY;  // Handle NULL pointer case
     }
 
+    // Free dynamically allocated command buffer
     if (cmd_buff->_cmd_buffer) {
         free(cmd_buff->_cmd_buffer);
-        cmd_buff->_cmd_buffer = NULL;  // Set to NULL after free
+        cmd_buff->_cmd_buffer = NULL;
     }
 
-    for (int i = 0; i < CMD_ARGV_MAX; i++) {
+    // Free each argument in argv
+    for (int i = 0; i < cmd_buff->argc; i++) {
         if (cmd_buff->argv[i]) {
             free(cmd_buff->argv[i]);
-            cmd_buff->argv[i] = NULL;  // Prevent double free
+            cmd_buff->argv[i] = NULL;
         }
     }
 
+    // Reset argument count
     cmd_buff->argc = 0;
+
     return OK;
 }
 
@@ -232,66 +265,84 @@ int exec_cmd(cmd_buff_t* cmd) {
 
 
 int execute_pipeline(command_list_t *clist) {
+    int rc;
+
     if (clist->num == 0) {
         return WARN_NO_CMDS;
     }
+
+    int pipes[CMD_MAX - 1][2];  // Array of pipes for each command (except last)
+    pid_t pids[CMD_MAX];        // Array of pids for each command
+    cmd_buff_t* cmd;
     
-    int pipes[CMD_MAX - 1][2];
-    pid_t pids[CMD_MAX];
-    cmd_buff_t cmd;
-    
+    cmd = malloc(sizeof(cmd_buff_t));
+
+    // Create pipes for each command except the last one
     for (int i = 0; i < clist->num - 1; i++) {
         if (pipe(pipes[i]) == -1) {
-            perror("pipe");
-            return ERR_MEMORY;
+            return ERR_MEMORY;  // Error creating pipe
         }
     }
-    
+
     for (int i = 0; i < clist->num; i++) {
-        if (build_cmd_buff(clist->commands[i].exe, &cmd) != OK) {
-            return ERR_MEMORY;
-        } else {
-            build_cmd_buff(clist->commands[i].exe, &cmd);
+        char* cmd_line = combine_exe_and_args(&clist->commands[i]);
+
+        // Build the command buffer
+        rc = build_cmd_buff(cmd_line, cmd);
+        if (rc != OK) {
+            free(cmd);
+            return rc;  // Error in building command buffer
         }
 
         pids[i] = fork();
         if (pids[i] == -1) {
-            perror("fork");
-            return ERR_MEMORY;
+            return ERR_MEMORY;  // Error forking process
         }
-        
-        if (pids[i] == 0) {
+
+        if (pids[i] == 0) {  // Child process
+            // If it's not the first command, get input from the previous pipe
             if (i > 0) {
-                dup2(pipes[i - 1][0], STDIN_FILENO);
+                dup2(pipes[i - 1][0], STDIN_FILENO);  // Redirect previous pipe to stdin
             }
+
+            // If it's not the last command, output to the next pipe
             if (i < clist->num - 1) {
-                dup2(pipes[i][1], STDOUT_FILENO);
+                dup2(pipes[i][1], STDOUT_FILENO);  // Redirect stdout to the next pipe
             }
-            
+
+            // Close all pipes in the child process
             for (int j = 0; j < clist->num - 1; j++) {
                 close(pipes[j][0]);
                 close(pipes[j][1]);
             }
-            
-            execvp(cmd.argv[0], cmd.argv);
-            perror("execvp");
+
+            // Execute the command
+            rc = exec_cmd(cmd);
+            //execvp(cmd->argv[0], cmd->argv);
+            // If execvp fails
+            // printf(CMD_ERR_EXECUTE);
             exit(ERR_EXEC_CMD);
         }
-        
-        clear_cmd_buff(&cmd);
+
+        clear_cmd_buff(cmd);  // Clear the command buffer for the next iteration
     }
-    
+
+    // Parent process: Close all pipes after forking
     for (int i = 0; i < clist->num - 1; i++) {
         close(pipes[i][0]);
         close(pipes[i][1]);
     }
-    
+
+    // Wait for all child processes to finish
     for (int i = 0; i < clist->num; i++) {
         waitpid(pids[i], NULL, 0);
     }
-    
-    return OK;
+
+    free(cmd);  // Free dynamically allocated memory for command buffer
+    return rc;  // Return the last result code
 }
+
+
 
 int exec_local_cmd_loop() {
     char* cmd_buff;
@@ -321,6 +372,7 @@ int exec_local_cmd_loop() {
         }
         
         rc = build_cmd_list(cmd_buff, &clist);
+
         if (rc == ERR_TOO_MANY_COMMANDS) {
             printf(CMD_ERR_PIPE_LIMIT, CMD_MAX);
             continue;
@@ -328,7 +380,7 @@ int exec_local_cmd_loop() {
             printf(CMD_WARN_NO_CMD);
             continue;
         } else {
-            execute_pipeline(&clist);
+            rc = execute_pipeline(&clist);
         }
     }
     
