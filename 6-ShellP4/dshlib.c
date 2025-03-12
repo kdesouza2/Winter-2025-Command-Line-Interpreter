@@ -10,18 +10,6 @@
 #include "dshlib.h"
 
 
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <ctype.h>
-#include <stdbool.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/wait.h>
-
-#include "dshlib.h"
-
 /**** 
  **** FOR REMOTE SHELL USE YOUR SOLUTION FROM SHELL PART 3 HERE
  **** THE MAIN FUNCTION CALLS THIS ONE AS ITS ENTRY POINT TO
