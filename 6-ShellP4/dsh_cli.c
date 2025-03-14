@@ -138,7 +138,7 @@ int main(int argc, char *argv[]){
       } else {
         printf("-> Single-Threaded Mode\n");
       }
-      rc = start_server(cargs.ip, cargs.port, cargs.threaded_server);
+      rc = start_server(cargs.ip, cargs.port);
       break;
     default:
       printf("error unknown mode\n");

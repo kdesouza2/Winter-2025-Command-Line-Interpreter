@@ -30,11 +30,11 @@ typedef struct cmd_buff
 
 typedef struct command_list{
     int num;
-    cmd_buff_t commands[CMD_MAX];
+    command_t commands[CMD_MAX];
 }command_list_t;
 
 //Special character #defines
-#define SPACE_CHAR  ' '
+#define SPACE_CHAR  " "
 #define PIPE_CHAR   '|'
 #define PIPE_STRING "|"
 
@@ -88,5 +88,6 @@ int execute_pipeline(command_list_t *clist);
 #define CMD_WARN_NO_CMD     "warning: no commands provided\n"
 #define CMD_ERR_PIPE_LIMIT  "error: piping limited to %d commands\n"
 #define BI_NOT_IMPLEMENTED "not implemented"
+#define CMD_ERR_EXECUTE     "error: external command error\n"
 
 #endif

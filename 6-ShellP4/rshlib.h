@@ -58,7 +58,7 @@ int exec_remote_cmd_loop(char *address, int port);
 
 //server prototypes for rsh_server.c - see documentation for each function to
 //see what they do
-int start_server(char *ifaces, int port, int is_threaded);
+int start_server(char *ifaces, int port);
 int boot_server(char *ifaces, int port);
 int stop_server(int svr_socket);
 int send_message_eof(int cli_socket);
