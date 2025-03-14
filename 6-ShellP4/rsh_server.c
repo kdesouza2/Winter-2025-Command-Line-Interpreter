@@ -1,4 +1,3 @@
-
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <arpa/inet.h>
@@ -273,33 +272,32 @@ int exec_client_requests(int cli_socket) {
     }
 
     while(1) {
-        // TODO use recv() syscall to get input
-        io_size = recv(cli_socket, io_buff, RDSH_COMM_BUFF_SZ, 0);
+         memset(io_buff, 0, RDSH_COMM_BUFF_SZ);
+        io_size = recv(cli_socket, io_buff, RDSH_COMM_BUFF_SZ - 1, 0);
         if (io_size <= 0) {
+            free(io_buff);
             return ERR_RDSH_COMMUNICATION;
         }
-        // TODO build up a cmd_list
+
+        io_buff[io_size] = '\0';  // Null-terminate received data
+
+        // Parse command into cmd_list
         cmd_list.num = 0;
         char *token = strtok(io_buff, " \t\r\n");
-        while (token != NULL) {
-            cmd_list.commands[cmd_list.num] = token;
+        while (token != NULL && cmd_list.num < ARG_MAX) {
+            strncpy(cmd_list.commands[cmd_list.num].exe, token, CMD_MAX);
+            cmd_list.commands[cmd_list.num].exe[CMD_MAX - 1] = '\0'; // Ensure null termination
             cmd_list.num++;
             token = strtok(NULL, " \t\r\n");
         }
-        // TODO rsh_execute_pipeline to run your cmd_list
 
-        // TODO send appropriate respones with send_message_string
-        // - error constants for failures
-        // - buffer contents from execute commands
-        //  - etc.
+        // Execute command pipeline
         rc = rsh_execute_pipeline(cli_socket, &cmd_list);
-        if (rc < 0) {
-            send_message_string(cli_socket, "Error executing command");
-        } else {
-            send_message_string(cli_socket, io_buff);  // or send any response from the executed command
+
+        if (rc == OK_EXIT) {
+            free(io_buff);
+            return OK_EXIT;
         }
-        // TODO send_message_eof when done
-        send_message_eof(cli_socket);
 
     }
     free(io_buff);
@@ -424,27 +422,37 @@ int rsh_execute_pipeline(int cli_sock, command_list_t *clist) {
         pids[i] = fork();
         if (pids[i] == -1) {
             perror("fork");
-            exit(EXIT_FAILURE);
+            return ERR_RDSH_COMMUNICATION;
         }
 
-        if (pids[i] == 0) {
-            // In child process
-            if (i > 0) {
-                dup2(pipes[i - 1][0], STDIN_FILENO); // Connect stdin to previous pipe
-            }
-            if (i < clist->num - 1) {
-                dup2(pipes[i][1], STDOUT_FILENO); // Connect stdout to next pipe
+        if (pids[i] == 0) { // Child process
+            if (i > 0) { // Not first command, get input from previous pipe
+                dup2(pipes[i - 1][0], STDIN_FILENO);
+            } else {
+                dup2(cli_sock, STDIN_FILENO);
             }
 
-            if (i == 0) {
-                dup2(cli_sock, STDIN_FILENO); // First process receives input from cli_sock
-            }
-            if (i == clist->num - 1) {
-                dup2(cli_sock, STDOUT_FILENO); // Last process sends output to cli_sock
+            if (i < clist->num - 1) { // Not last command, send output to next pipe
+                dup2(pipes[i][1], STDOUT_FILENO);
+            } else {
+                dup2(cli_sock, STDOUT_FILENO);
+                dup2(cli_sock, STDERR_FILENO);
             }
 
-            execvp(clist->cmds[i].name, clist->cmds[i].args);
-            perror("execvp failed");
+            for (int j = 0; j < clist->num - 1; j++) { // Close all pipes
+                close(pipes[j][0]);
+                close(pipes[j][1]);
+            }
+
+            // Convert command_t to char* array for execvp
+            char *args[ARG_MAX + 1];
+            for (int j = 0; j < ARG_MAX && clist->commands[i].exe[j] != '\0'; j++) {
+                args[j] = clist->commands[i].exe;
+            }
+            args[ARG_MAX] = NULL;
+
+            execvp(args[0], args);
+            perror("execvp");
             exit(EXIT_FAILURE);
         }
     }
